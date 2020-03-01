@@ -1,7 +1,6 @@
 var $ = require('jquery/dist/jquery.js');
 var angular = require('angular');
 var moment = require('moment');
-var InfoBox = require('google-maps-infobox');
 var _unionBy = require('lodash/unionBy');
 
 var LocationEnum = {
@@ -11,6 +10,9 @@ var LocationEnum = {
     NOT_FIXED: -1,
     DISABLED: -2
 };
+
+//TODO: InfoBox to be readded
+//TODO: Marker Listener to be readded
 
 angular.module('windmobile.controllers', ['windmobile.services'])
 
@@ -394,7 +396,6 @@ angular.module('windmobile.controllers', ['windmobile.services'])
         function ($scope, $state, $window, $http, $compile, $templateCache, $location, utils,
                   lat, lon, zoom) {
             var self = this;
-            var infoBox;
 
             var markersArray = [];
             function getMarker(id) {
@@ -420,7 +421,6 @@ angular.module('windmobile.controllers', ['windmobile.services'])
                 for (var i = 0; i < markersArray.length; i++) {
                     var marker = markersArray[i];
                     if (!hasStation(marker.station._id, stations)) {
-                        google.maps.event.clearInstanceListeners(marker);
                         marker.setMap(null);
                         markersArray.splice(i, 1);
                         i--;
@@ -465,47 +465,13 @@ angular.module('windmobile.controllers', ['windmobile.services'])
                     };
 
                     if (!marker) {
-                        marker = new google.maps.Marker({
-                            title: station['short'],
-                            position: new google.maps.LatLng(station.loc.coordinates[1], station.loc.coordinates[0]),
-                            icon: icon,
-                            map: self.map
-                        });
+                        marker = new L.Marker(new L.LatLng(station.loc.coordinates[1], station.loc.coordinates[0]));
+                        marker.bindPopup(station['short']);
+                        map.addLayer(marker);
+                        
                         marker.station = station;
                         markersArray.push(marker);
 
-                        google.maps.event.addListener(marker, 'click', function () {
-                            // 'click' is also called twice on 'dbckick' event
-                            if (!this.timeout) {
-                                marker = this;
-                                this.timeout = setTimeout(function () {
-                                    marker.timeout = null;
-                                    if (infoBox) {
-                                        infoBox.close();
-                                    }
-
-                                    self.selectedStation = marker.station;
-                                    if (self.selectedStation.last) {
-                                        self.updateFromNow();
-                                        self.getHistoric();
-                                    }
-
-                                    infoBox = new InfoBox({
-                                        content: $compile($templateCache.get('_infobox.html'))($scope)[0],
-                                        closeBoxURL: '',
-                                        /* same media query as right-margin in windmobile.scss */
-                                        infoBoxClearance: (window.matchMedia('(min-width: 400px)').matches ?
-                                            new google.maps.Size(60, 0) : new google.maps.Size(50, 0))
-                                    });
-                                    infoBox.open(self.map, marker);
-                                }, 300);
-                            }
-                        });
-                        google.maps.event.addListener(marker, 'dblclick', function (event) {
-                            clearTimeout(this.timeout);
-                            this.timeout = null;
-                            throw "propagates dblclick event";
-                        });
                     } else {
                         marker.setIcon(icon);
                     }
@@ -653,17 +619,11 @@ angular.module('windmobile.controllers', ['windmobile.services'])
             this.search = $location.search().search;
 
             // Initialize Google Maps
-            var mapOptions = {
-                panControl: false,
-                streetViewControl: false,
-                mapTypeControlOptions: {
-                    mapTypeIds: [google.maps.MapTypeId.TERRAIN, google.maps.MapTypeId.ROADMAP,
-                        google.maps.MapTypeId.SATELLITE],
-                    position: google.maps.ControlPosition.LEFT_BOTTOM
-                },
-                mapTypeId: google.maps.MapTypeId.TERRAIN
-            };
-            this.map = new google.maps.Map($('#wdm-map')[0], mapOptions);
+            var map = new L.Map("#wdm-map", {
+                center: new L.LatLng(46.67991, 7.85143),
+                zoom: 12,
+                layers: new L.TileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png")
+            });
 
             this.getLegendColorStyle = function (value) {
                 return {color: utils.getColorInRange(value, 50)};

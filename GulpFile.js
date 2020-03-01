@@ -1,5 +1,6 @@
 var gulp = require('gulp');
 var gutil = require('gulp-util');
+var browserSync = require('browser-sync');
 var source = require('vinyl-source-stream');
 var buffer = require('vinyl-buffer');
 
@@ -10,7 +11,7 @@ var uglify = require('gulp-uglify');
 var cdnizer = require('gulp-cdnizer');
 
 
-gulp.task('js', function () {
+gulp.task('js', async function () {
     var b = browserify(
         ['static/web/js/app.js', 'static/web/js/controllers.js', 'static/web/js/services.js'],
         {
@@ -35,7 +36,7 @@ gulp.task('js', function () {
         .pipe(gulp.dest('static/web/js/'));
 });
 
-gulp.task('sass', function () {
+gulp.task('sass', async function () {
     gulp.src('src/scss/*.*')
         .pipe(sourcemaps.init())
         .pipe(sass({
@@ -45,7 +46,7 @@ gulp.task('sass', function () {
         .pipe(gulp.dest('static/web/css/'));
 });
 
-gulp.task('html', function () {
+gulp.task('html', async function () {
     gulp.src('src/html/**/*.html')
         .pipe(gutil.env.production ?
             cdnizer({
@@ -63,10 +64,23 @@ gulp.task('html', function () {
         .pipe(gulp.dest('static/web/'));
 });
 
-gulp.task('watch', function () {
-    gulp.watch(['static/web/js/app.js', 'static/web/js/controllers.js', 'static/web/js/services.js',
-        'static/web/locale/*.js'], ['js']);
-    gulp.watch('src/scss/*.*', ['sass']);
-    gulp.watch('src/html/**/*.html', ['html']);
+gulp.task('server', function (done) {
+    browserSync.init({
+        server: {
+            baseDir: "./",
+            index: "/static/web/stations.html"
+        }
+    });
+    gulp.watch("static/web/css/**", browserSync.reload);
+    //  gulp.watch("template/assets/scss/**/*.scss", browserSync.reload);
+    gulp.watch("static/web/js/**", browserSync.reload);
+    gulp.watch("static/web/**",browserSync.reload);
+    done();
 });
-gulp.task('default', ['js', 'sass', 'html']);
+
+function reload(done) {
+    server.reload();
+    done();
+  }
+
+gulp.task('default', gulp.series('js', 'sass', 'html','server'));
